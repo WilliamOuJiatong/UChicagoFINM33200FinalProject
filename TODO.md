@@ -1,0 +1,6 @@
+- Build the gold-label set for Q&A credibility:
+  - Manually annotate an initial 150-200 Q&A rows in `data/processed/qa_label_sheet.csv` as `direct`, `partial`, or `evasive`.
+  - Optionally use model prelabels for the remaining rows and manually review/correct them.
+  - Finalize labeled data for train/validation/test splitting.
+- Build presentation-ready benchmark summaries:
+  - Run `scripts/summarize_runs.py` after benchmark runs to generate cross-run leaderboard CSV/Markdown tables for slides and writeup.

@@ -1,2 +1,9 @@
 __pycache__/
 *.py[cod]
+outputs/
+data/raw/sp500_earnings_transcripts_hf/
+data/raw/sp500_subset_hf/
+data/raw/qa_raw.csv
+data/processed/qa_label_sheet.csv
+data/processed/qa_gold.csv
+data/processed/splits/

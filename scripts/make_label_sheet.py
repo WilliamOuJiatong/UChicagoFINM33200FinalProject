@@ -35,7 +35,7 @@ def main():
         if col not in df.columns:
             df[col] = ""
 
-    ordered = [
+    base_order = [
         "q_id",
         "company",
         "ticker",
@@ -43,9 +43,16 @@ def main():
         "question",
         "answer",
         "source_url",
-        "label",
-        "annotator_notes",
     ]
+    optional_order = [
+        "question_speaker",
+        "question_role",
+        "answer_speakers",
+        "answer_role",
+    ]
+    tail_order = ["label", "annotator_notes"]
+
+    ordered = base_order + [c for c in optional_order if c in df.columns] + tail_order
     df = df[ordered]
     output_path.parent.mkdir(parents=True, exist_ok=True)
     df.to_csv(output_path, index=False)
@@ -54,4 +61,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-
