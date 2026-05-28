@@ -1,16 +1,16 @@
-# This is a sample Python script.
-
-# Press ⌃R to execute it or replace it with your code.
-# Press Double ⇧ to search everywhere for classes, files, tool windows, actions, and settings.
+from pathlib import Path
 
 
-def print_hi(name):
-    # Use a breakpoint in the code line below to debug your script.
-    print(f'Hi, {name}')  # Press ⌘F8 to toggle the breakpoint.
+def main() -> None:
+    project_root = Path(__file__).resolve().parent
+    print("Q&A Credibility Benchmark scaffold is ready.")
+    print("Next steps:")
+    print("1) Put raw transcript Q&A rows in data/raw/qa_raw.csv")
+    print("2) python scripts/make_label_sheet.py --input data/raw/qa_raw.csv --output data/processed/qa_label_sheet.csv")
+    print("3) Label and save as data/processed/qa_gold.csv")
+    print("4) python scripts/run_benchmark.py --input data/processed/qa_gold.csv --output outputs")
+    print(f"Project root: {project_root}")
 
 
-# Press the green button in the gutter to run the script.
-if __name__ == '__main__':
-    print_hi('PyCharm')
-
-# See PyCharm help at https://www.jetbrains.com/help/pycharm/
+if __name__ == "__main__":
+    main()
