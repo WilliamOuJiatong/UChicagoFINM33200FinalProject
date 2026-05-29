@@ -12,7 +12,13 @@ sys.path.insert(0, str(ROOT / "src"))
 
 from qa_benchmark.data import load_csv, split_gold, validate_gold_df
 from qa_benchmark.eval import compute_metrics, confusion_as_df, write_json
-from qa_benchmark.models import predict_heuristic, predict_tfidf_logreg, train_tfidf_logreg
+from qa_benchmark.models import (
+    predict_heuristic,
+    predict_tfidf_linear_svc,
+    predict_tfidf_logreg,
+    train_tfidf_linear_svc,
+    train_tfidf_logreg,
+)
 
 
 def parse_args():
@@ -61,6 +67,42 @@ def evaluate_model(name: str, y_true: list[str], y_pred: list[str], out_dir: Pat
     return metrics
 
 
+def select_best_non_heuristic_model(train_df, val_df, out_dir: Path):
+    c_grid = [0.25, 1.0, 4.0]
+    y_val = list(val_df["label"])
+    candidates = []
+
+    for c in c_grid:
+        lr_name = f"tfidf_logreg_c{c}"
+        lr_model = train_tfidf_logreg(train_df, c=c)
+        lr_preds = predict_tfidf_logreg(lr_model, val_df)
+        lr_metrics = evaluate_model(f"val_{lr_name}", y_val, lr_preds, out_dir)
+        candidates.append((lr_name, lr_model, lr_metrics, "logreg"))
+
+        svc_name = f"tfidf_linear_svc_c{c}"
+        svc_model = train_tfidf_linear_svc(train_df, c=c)
+        svc_preds = predict_tfidf_linear_svc(svc_model, val_df)
+        svc_metrics = evaluate_model(f"val_{svc_name}", y_val, svc_preds, out_dir)
+        candidates.append((svc_name, svc_model, svc_metrics, "linear_svc"))
+
+    candidates_sorted = sorted(
+        candidates,
+        key=lambda x: (x[2]["macro_f1"], x[2]["weighted_f1"], x[2]["accuracy"]),
+        reverse=True,
+    )
+    best_name, best_model, best_metrics, best_family = candidates_sorted[0]
+
+    all_val = {
+        name: metrics
+        for name, _, metrics, _ in candidates
+    }
+    all_val["best_model"] = {
+        "name": best_name,
+        "family": best_family,
+    }
+    return best_name, best_model, best_metrics, all_val
+
+
 def main():
     args = parse_args()
     out_root = Path(args.output)
@@ -70,28 +112,34 @@ def main():
 
     train_df, val_df, test_df, source_ref = load_eval_splits(args)
 
-    logreg_model = train_tfidf_logreg(train_df)
-
-    # Evaluate on validation split if available.
+    # Select best non-heuristic model on validation when available.
     val_results = None
     if val_df is not None and not val_df.empty:
         y_val = list(val_df["label"])
         val_heuristic_preds = predict_heuristic(val_df)
-        val_logreg_preds = predict_tfidf_logreg(logreg_model, val_df)
+        heuristic_val_metrics = evaluate_model(
+            "val_heuristic", y_val, val_heuristic_preds, out_dir
+        )
+        best_model_name, best_model, best_val_metrics, non_heuristic_val = (
+            select_best_non_heuristic_model(train_df, val_df, out_dir)
+        )
         val_results = {
-            "heuristic": evaluate_model(
-                "val_heuristic", y_val, val_heuristic_preds, out_dir
-            ),
-            "tfidf_logreg": evaluate_model(
-                "val_tfidf_logreg", y_val, val_logreg_preds, out_dir
-            ),
+            "heuristic": heuristic_val_metrics,
+            **non_heuristic_val,
+            "selected_non_heuristic_metrics": best_val_metrics,
         }
+    else:
+        best_model_name = "tfidf_logreg_c1.0"
+        best_model = train_tfidf_logreg(train_df, c=1.0)
 
     y_test = list(test_df["label"])
     heuristic_preds = predict_heuristic(test_df)
     heuristic_metrics = evaluate_model("test_heuristic", y_test, heuristic_preds, out_dir)
-    logreg_preds = predict_tfidf_logreg(logreg_model, test_df)
-    logreg_metrics = evaluate_model("test_tfidf_logreg", y_test, logreg_preds, out_dir)
+    if best_model_name.startswith("tfidf_linear_svc"):
+        best_preds = predict_tfidf_linear_svc(best_model, test_df)
+    else:
+        best_preds = predict_tfidf_logreg(best_model, test_df)
+    best_metrics = evaluate_model(f"test_{best_model_name}", y_test, best_preds, out_dir)
 
     summary = {
         "run_id": run_id,
@@ -100,10 +148,11 @@ def main():
         "n_train": int(len(train_df)),
         "n_val": int(len(val_df)) if val_df is not None else 0,
         "n_test": int(len(test_df)),
+        "selected_non_heuristic_model": best_model_name,
         "models": {
             "test": {
                 "heuristic": heuristic_metrics,
-                "tfidf_logreg": logreg_metrics,
+                best_model_name: best_metrics,
             },
         },
     }
@@ -118,7 +167,7 @@ def main():
         "answer": test_df["answer"].values,
         "gold_label": y_test,
         "heuristic_pred": heuristic_preds,
-        "tfidf_logreg_pred": logreg_preds,
+        f"{best_model_name}_pred": best_preds,
     }
     for optional_col in (
         "company",
@@ -138,11 +187,14 @@ def main():
     print(f"Saved run artifacts to: {out_dir}")
     if val_results is not None:
         print("Validation Macro F1:")
-        print(f"  heuristic:   {val_results['heuristic']['macro_f1']:.4f}")
-        print(f"  tfidf_logreg:{val_results['tfidf_logreg']['macro_f1']:.4f}")
+        print(f"  heuristic:               {val_results['heuristic']['macro_f1']:.4f}")
+        print(
+            f"  selected_non_heuristic: {val_results['selected_non_heuristic_metrics']['macro_f1']:.4f} "
+            f"({best_model_name})"
+        )
     print("Test Macro F1:")
     print(f"  heuristic:   {heuristic_metrics['macro_f1']:.4f}")
-    print(f"  tfidf_logreg:{logreg_metrics['macro_f1']:.4f}")
+    print(f"  {best_model_name}:{best_metrics['macro_f1']:.4f}")
 
 
 if __name__ == "__main__":

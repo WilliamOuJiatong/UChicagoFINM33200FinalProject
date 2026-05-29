@@ -6,6 +6,7 @@ import pandas as pd
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.linear_model import LogisticRegression
 from sklearn.pipeline import Pipeline
+from sklearn.svm import LinearSVC
 
 from .data import build_text_features
 
@@ -87,7 +88,7 @@ def predict_heuristic(df: pd.DataFrame) -> list[str]:
     return preds
 
 
-def train_tfidf_logreg(df_train: pd.DataFrame) -> Pipeline:
+def train_tfidf_logreg(df_train: pd.DataFrame, c: float = 1.0) -> Pipeline:
     x_train = build_text_features(df_train)
     y_train = df_train["label"]
 
@@ -100,6 +101,7 @@ def train_tfidf_logreg(df_train: pd.DataFrame) -> Pipeline:
                     max_iter=2500,
                     class_weight="balanced",
                     random_state=42,
+                    C=c,
                 ),
             ),
         ]
@@ -112,3 +114,21 @@ def predict_tfidf_logreg(model: Pipeline, df_test: pd.DataFrame) -> list[str]:
     x_test = build_text_features(df_test)
     return list(model.predict(x_test))
 
+
+def train_tfidf_linear_svc(df_train: pd.DataFrame, c: float = 1.0) -> Pipeline:
+    x_train = build_text_features(df_train)
+    y_train = df_train["label"]
+
+    model = Pipeline(
+        steps=[
+            ("tfidf", TfidfVectorizer(ngram_range=(1, 2), min_df=1, max_features=30000)),
+            ("clf", LinearSVC(C=c, class_weight="balanced", random_state=42)),
+        ]
+    )
+    model.fit(x_train, y_train)
+    return model
+
+
+def predict_tfidf_linear_svc(model: Pipeline, df_test: pd.DataFrame) -> list[str]:
+    x_test = build_text_features(df_test)
+    return list(model.predict(x_test))

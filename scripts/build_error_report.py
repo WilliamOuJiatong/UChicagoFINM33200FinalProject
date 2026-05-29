@@ -58,13 +58,14 @@ def main():
     out_dir.mkdir(parents=True, exist_ok=True)
 
     df = pd.read_csv(pred_path)
-    expected = {"gold_label", "heuristic_pred", "tfidf_logreg_pred"}
-    missing = expected - set(df.columns)
-    if missing:
-        raise ValueError(f"Missing columns in predictions file: {sorted(missing)}")
+    if "gold_label" not in df.columns:
+        raise ValueError("Missing required column: gold_label")
+    model_pred_cols = [c for c in df.columns if c.endswith("_pred")]
+    if not model_pred_cols:
+        raise ValueError("No model prediction columns found (expected * _pred).")
 
     summary_rows = []
-    for model_col in ("heuristic_pred", "tfidf_logreg_pred"):
+    for model_col in model_pred_cols:
         out_file = out_dir / f"errors_{model_col}.csv"
         exported = _export_model_errors(df, model_col, args.top_n, out_file)
         total_errors = int((df["gold_label"] != df[model_col]).sum())
@@ -86,4 +87,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-

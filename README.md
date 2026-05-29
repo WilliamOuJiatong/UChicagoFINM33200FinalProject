@@ -8,7 +8,7 @@ This repo builds a benchmark that classifies management answers in earnings-call
 - `partial`
 - `evasive`
 
-The goal is to evaluate how reliably different approaches can detect answer quality.
+The goal is to measure how reliably different approaches detect answer quality.
 
 ## Repository Layout
 
@@ -49,6 +49,14 @@ Then run:
 python scripts/make_label_sheet.py \
   --input data/raw/qa_raw.csv \
   --output data/processed/qa_label_sheet.csv
+```
+
+Optional: create a readable Excel copy for manual annotation:
+
+```bash
+python scripts/make_label_xlsx.py \
+  --input data/processed/qa_label_sheet.csv \
+  --output data/processed/qa_label_sheet_readable.xlsx
 ```
 
 ## Optional: Create a Compact Transcript Subset
@@ -105,10 +113,17 @@ python scripts/run_benchmark.py \
   --output outputs
 ```
 
-The script runs:
+Model selection is validation-based for non-heuristic models:
+
+- candidates: `tfidf_logreg` and `tfidf_linear_svc`
+- hyperparameter grid: `C = [0.25, 1.0, 4.0]`
+- selection metric: validation macro-F1
+
+The benchmark evaluates:
 
 1. Heuristic baseline
 2. TF-IDF + Logistic Regression baseline
+3. TF-IDF + Linear SVC baseline
 
 Outputs include:
 
@@ -118,7 +133,7 @@ Outputs include:
 
 ## Create Fixed Train/Val/Test Splits
 
-After labels are ready, generate reproducible split files:
+After labels are ready, create fixed split files:
 
 ```bash
 python scripts/create_splits.py \
@@ -132,7 +147,7 @@ python scripts/create_splits.py \
 
 ## Generate Error-Case Reports
 
-From a benchmark run directory:
+From a benchmark run directory, generate error reports:
 
 ```bash
 python scripts/build_error_report.py \
@@ -143,7 +158,7 @@ python scripts/build_error_report.py \
 
 ## Build Cross-Run Leaderboard Tables
 
-Aggregate all `outputs/run_*` metrics into one CSV and a Markdown leaderboard:
+Aggregate all `outputs/run_*` metrics into one CSV and one Markdown leaderboard:
 
 ```bash
 python scripts/summarize_runs.py \
@@ -151,8 +166,51 @@ python scripts/summarize_runs.py \
   --output-dir outputs/summary
 ```
 
+## Compare AI vs Manual Gold Sets (One Command)
+
+Run synchronized train/val/test experiments on both datasets and generate a side-by-side comparison:
+
+```bash
+python scripts/compare_ai_manual_datasets.py \
+  --ai-dataset data/processed/qa_gold_ai_dataset.csv \
+  --manual-dataset data/processed/qa_gold_manual_dataset.csv \
+  --output-root outputs/dual_dataset_compare \
+  --seed 42
+```
+
+Outputs:
+
+- `.../reports/single_run_metrics.csv` (long format: dataset x model slot)
+- `.../reports/ai_vs_manual_metrics.csv`
+- `.../reports/ai_vs_manual_deltas.csv`
+- `.../reports/ai_vs_manual_report.md`
+- `.../reports/comparison_summary.json`
+
+## Stability Check (5 Seeds)
+
+Run 5 repeated AI-vs-manual comparisons and produce one interpretation report:
+
+```bash
+python scripts/run_stability_5x.py \
+  --ai-dataset data/processed/qa_gold_ai_dataset.csv \
+  --manual-dataset data/processed/qa_gold_manual_dataset.csv \
+  --output-root outputs/stability_5x \
+  --seeds 41,42,43,44,45
+```
+
+Outputs:
+
+- `.../five_run_metrics.csv`
+- `.../five_run_summary.csv`
+- `.../five_run_interpretation_report.md`
+
 ## Notes for Course Deliverable
 
-- Use real transcripts and keep source URLs.
-- Document label policy and adjudication choices.
-- Include failure-case analysis in the final write-up.
+Five repeated runs with different split seeds (`41, 42, 43, 44, 45`) produced non-identical results. That is expected.
+
+General interpretation from the tests:
+
+- The manual-rule dataset is usually stronger than the AI-labeled dataset on selected non-heuristic models (higher average test macro-F1 and accuracy).
+- The manual-vs-AI gap changes by split, so report mean and variance, not a single run.
+- Heuristic scores on AI-labeled data can be inflated by label overlap; use those as diagnostics, not final evidence.
+- The selected non-heuristic model (`tfidf_logreg` vs `tfidf_linear_svc`) can change by seed, so multi-run reporting is important.

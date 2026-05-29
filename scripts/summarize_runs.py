@@ -29,6 +29,13 @@ def _read_metrics(path: Path) -> dict:
         return json.load(f)
 
 
+def _frame_to_markdown(df: pd.DataFrame) -> str:
+    try:
+        return df.to_markdown(index=False)
+    except Exception:
+        return f"```\n{df.to_string(index=False)}\n```"
+
+
 def _extract_row(run_dir: Path, payload: dict, split_name: str, model_name: str, model_metrics: dict) -> dict:
     return {
         "run_id": payload.get("run_id", run_dir.name),
@@ -46,12 +53,17 @@ def _extract_row(run_dir: Path, payload: dict, split_name: str, model_name: str,
     }
 
 
+def _is_metric_dict(obj: object) -> bool:
+    if not isinstance(obj, dict):
+        return False
+    return {"accuracy", "macro_f1", "weighted_f1"}.issubset(set(obj.keys()))
+
+
 def collect_rows(runs_root: Path) -> list[dict]:
     rows: list[dict] = []
-    for run_dir in sorted(runs_root.glob("run_*")):
-        metrics_path = run_dir / "metrics_summary.json"
-        if not metrics_path.exists():
-            continue
+    metrics_paths = sorted(runs_root.rglob("metrics_summary.json"))
+    for metrics_path in metrics_paths:
+        run_dir = metrics_path.parent
         payload = _read_metrics(metrics_path)
         models = payload.get("models", {})
 
@@ -60,8 +72,25 @@ def collect_rows(runs_root: Path) -> list[dict]:
             rows.append(_extract_row(run_dir, payload, "test", model_name, m))
 
         val_models = models.get("validation", {})
+        if _is_metric_dict(val_models.get("heuristic")):
+            rows.append(
+                _extract_row(run_dir, payload, "validation", "heuristic", val_models["heuristic"])
+            )
+        if _is_metric_dict(val_models.get("selected_non_heuristic_metrics")):
+            rows.append(
+                _extract_row(
+                    run_dir,
+                    payload,
+                    "validation",
+                    "selected_non_heuristic",
+                    val_models["selected_non_heuristic_metrics"],
+                )
+            )
         for model_name, m in val_models.items():
-            rows.append(_extract_row(run_dir, payload, "validation", model_name, m))
+            if model_name in {"heuristic", "selected_non_heuristic_metrics", "best_model"}:
+                continue
+            if _is_metric_dict(m):
+                rows.append(_extract_row(run_dir, payload, "validation", model_name, m))
     return rows
 
 
@@ -107,7 +136,7 @@ def main():
     leaderboard_md = out_dir / "leaderboard_test.md"
     with open(leaderboard_md, "w", encoding="utf-8") as f:
         f.write("# Test Leaderboard\n\n")
-        f.write(leaderboard_df.to_markdown(index=False))
+        f.write(_frame_to_markdown(leaderboard_df))
         f.write("\n")
 
     print(f"Wrote: {all_path}")
@@ -119,4 +148,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-

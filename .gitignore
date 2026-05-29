@@ -1,3 +1,5 @@
+.DS_Store
+.venv/
 __pycache__/
 *.py[cod]
 outputs/
@@ -7,3 +9,10 @@ data/raw/qa_raw.csv
 data/processed/qa_label_sheet.csv
 data/processed/qa_gold.csv
 data/processed/splits/
+data/processed/qa_label_sheet_annotated.csv
+data/processed/qa_label_sheet_annotated_readable.xlsx
+data/processed/qa_label_sheet_readable.xlsx
+data/processed/*.xlsx
+data/processed/~$*.xlsx
+data/processed/qa_gold_weighted_rules.csv
+data/processed/qa_gold_weighted_rules_model.csv
