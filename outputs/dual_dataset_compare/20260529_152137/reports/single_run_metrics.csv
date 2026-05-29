@@ -1,0 +1,5 @@
+dataset,model_slot,model_name,accuracy,macro_f1,weighted_f1
+ai,heuristic,heuristic,1.0,1.0,1.0
+ai,selected_non_heuristic,tfidf_linear_svc_c4.0,0.49230769230769234,0.49383864217623813,0.4852395686155277
+manual,heuristic,heuristic,0.5076923076923077,0.44379156847342244,0.5992850323282375
+manual,selected_non_heuristic,tfidf_logreg_c0.25,0.7692307692307693,0.4938202247191012,0.7572515125324114

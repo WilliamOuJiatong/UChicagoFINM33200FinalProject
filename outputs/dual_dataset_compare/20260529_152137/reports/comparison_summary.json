@@ -1,0 +1,25 @@
+{
+  "comparison_root": "outputs/dual_dataset_compare/20260529_152137",
+  "single_run_metrics_csv": "outputs/dual_dataset_compare/20260529_152137/reports/single_run_metrics.csv",
+  "ai_vs_manual_metrics_csv": "outputs/dual_dataset_compare/20260529_152137/reports/ai_vs_manual_metrics.csv",
+  "ai_vs_manual_deltas_csv": "outputs/dual_dataset_compare/20260529_152137/reports/ai_vs_manual_deltas.csv",
+  "report_md": "outputs/dual_dataset_compare/20260529_152137/reports/ai_vs_manual_report.md",
+  "key_findings": [
+    {
+      "metric": "selected_test_macro_f1 (manual - ai)",
+      "value": -1.8417457136932214e-05
+    },
+    {
+      "metric": "selected_test_accuracy (manual - ai)",
+      "value": 0.27692307692307694
+    },
+    {
+      "metric": "selected-vs-heuristic macro_f1 gap on manual",
+      "value": 0.05002865624567876
+    },
+    {
+      "metric": "selected-vs-heuristic macro_f1 gap on ai",
+      "value": -0.5061613578237618
+    }
+  ]
+}
